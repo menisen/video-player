@@ -240,6 +240,17 @@ export interface IProps {
   width: string,
   height: string
 }
+export interface VideoSpeedInterface {
+  id: number,
+  text: string,
+  value: number,
+  state?: string
+}
+export interface TimeInterface {
+  hours: string
+  minutes: string
+  seconds: string
+}
 
 const props = withDefaults(defineProps<IProps>(), {
   src: '',
@@ -249,7 +260,7 @@ const props = withDefaults(defineProps<IProps>(), {
 const emit = defineEmits(['start', 'end', 'play', 'pause', 'pip', 'fullscreen'])
 
 let video = ref()
-let videoControls = ref('')
+let videoControls = ref()
 let playButton = ref()
 let playbackIcons = ref(false)
 let timeElapsed = ref('')
@@ -263,10 +274,10 @@ let playbackAnimation = ref()
 let fullscreenButton = ref()
 let videoContainer = ref()
 let fullscreenIcons = ref(false)
-let pipButton = ref('')
+let pipButton = ref()
 let timer = ref(0)
 let speedValue = ref(3)
-let videoSpeedValues = ref([
+let videoSpeedValues: VideoSpeedInterface[] = [
   { id: 1, text: '0.25', value: 0.25 },
   { id: 2, text: '0.5', value: 0.5 },
   { id: 3, text: '0.75', value: 0.75 },
@@ -275,7 +286,7 @@ let videoSpeedValues = ref([
   { id: 6, text: '1.5', value: 1.5 },
   { id: 7, text: '1.75', value: 1.75 },
   { id: 8, text: '2', value: 2 },
-])
+]
 let videoQualityValues = ref(['360', '480', '720'])
 let settings = ref('')
 let loader = ref(true)
@@ -285,12 +296,11 @@ let cancelNextVideo = ref(false)
 let currentTime = ref(0)
 let hideClass = ref(false)
 let isMoveTimeExpired = ref(false)
-let isMouseMoveOntoBottom = false
 
 
 
 
-const playing = () => {
+const playing = (): void => {
   playbackIcons.value = true
   currentTime.value = video.value.currentTime
 }
@@ -308,7 +318,7 @@ const togglePlay = async () => {
     hideClass.value = false
   }
 }
-const updatePlayButton = () => {
+const updatePlayButton = (): void => {
   mousemove()
   playbackIcons.value = !playbackIcons.valueOf()
 
@@ -321,8 +331,8 @@ const updatePlayButton = () => {
     playButton.value.setAttribute('data-title', `Пауза (k)`)
   }
 }
-const formatTime = (timeInSeconds:number) => {
-  const result = new Date((timeInSeconds || 0) * 1000).toISOString().substr(11, 8)
+const formatTime = (timeInSeconds:number): TimeInterface => {
+  const result: string = new Date((timeInSeconds || 0) * 1000).toISOString().substr(11, 8)
 
   return {
     hours: result.substr(0, 2),
@@ -330,12 +340,12 @@ const formatTime = (timeInSeconds:number) => {
     seconds: result.substr(6, 2),
   }
 }
-const initializeVideo = () => {
-  const videoDuration = Math.round(video.value.duration)
+const initializeVideo = (): void => {
+  const videoDuration: number = Math.round(video.value.duration)
   if (seek?.value) {
     seek.value.setAttribute('max', videoDuration)
   }
-  const time = formatTime(videoDuration)
+  const time: TimeInterface = formatTime(videoDuration)
   duration.value = `${parseInt(time.hours) ? time.hours + ':' : ''}${time.minutes}:${time.seconds}`
   if (loader.value && !video.value.paused && video.value.duration == 0) {
     setTimeout(() => {
@@ -346,48 +356,50 @@ const initializeVideo = () => {
     video.value.pause()
   } else video.value.play()
 }
-const updateTimeElapsed = () => {
-  const time = formatTime(Math.round(video.value.currentTime))
+const updateTimeElapsed = (): void => {
+  const time: TimeInterface = formatTime(Math.round(video.value.currentTime))
   timeElapsed.value = `${parseInt(time.hours) ? time.hours + ':' : ''}${time.minutes}:${time.seconds}`
   progressBar.value = Math.round(video.value.currentTime / video.value.duration * 100)
   progressBarValue.value = Math.round(video.value.currentTime / video.value.duration * 100)
   playbackIcons.value = true
 }
-const updateProgress = () => {
+const updateProgress = (): void => {
   seek.value.value = Math.floor(video.value.currentTime)
   progressBar.value = video.value.currentTime / video.value.duration * 100
   progressBarValue.value = Math.round(video.value.currentTime / video.value.duration * 100)
 }
-const updateSeekTooltip = (event) => {
-  const skipTo = Math.max(Math.round((event.offsetX / event.target.clientWidth) * parseInt(event.target.getAttribute('max'), 10)), 0)
+const updateSeekTooltip = (e: Event): void => {
+  const event = e as MouseEvent
+  const target = event.target as HTMLInputElement
+  const skipTo: number = Math.max(Math.round((event.offsetX / target!.clientWidth) * parseInt(target!.getAttribute('max')!, 10)), 0)
   seek.value.setAttribute('data-seek', skipTo)
-  const t = formatTime(skipTo)
+  const t: TimeInterface = formatTime(skipTo)
   seekTooltip.value.textContent = `${parseInt(t.hours) ? t.hours + ':' : ''}${t.minutes}:${t.seconds}`
   const rect = video.value.getBoundingClientRect()
-  const fixLeftPosition = Math.max(event.pageX - rect.left - 10, 10)
-  const fixRightPosition = Math.min(fixLeftPosition, video.value.getBoundingClientRect().right - 60)
+  const fixLeftPosition: number = Math.max(event.pageX - rect.left - 10, 10)
+  const fixRightPosition: number = Math.min(fixLeftPosition, video.value.getBoundingClientRect().right - 60)
   seekTooltip.value.style.left = `${fixRightPosition}px`
 }
-const skipAhead = (event) => {
+const skipAhead = (e: Event): void => {
+  const event = e as InputEvent
   loader.value = true
-  const skipTo = (event.target.dataset.seek
-    ? event.target.dataset.seek
-    : event.target.value) || 0
+  const target = event.target as HTMLInputElement
+  const skipTo: number | string = (target.dataset.seek ? target.dataset.seek : target.value) || 0
   video.value.currentTime = skipTo
   seek.value.value = skipTo
   cancelNextVideo.value = false
 }
-const updateVolume = () => {
+const updateVolume = (): void => {
   if (video.value.muted) {
     video.value.muted = false
   }
 
   video.value.volume = volume.value
 }
-const updateVolumeIcon = () => {
+const updateVolumeIcon = (): void => {
 
 }
-const toggleMute = () => {
+const toggleMute = (): void => {
   video.value.muted = !video.value.muted
 
   if (video.value.muted) {
@@ -397,8 +409,8 @@ const toggleMute = () => {
     volume.value = beforeUpdateVolume.value
   }
 }
-const animatePlayback = () => {
-  let width = window.outerWidth
+const animatePlayback = (): void => {
+  let width: number = window.outerWidth
   if (width > 579 || !hideClass.value)
     playbackAnimation.value.animate([
       {
@@ -413,8 +425,9 @@ const animatePlayback = () => {
       duration: 500,
     })
 }
-const toggleFullScreen = () => {
+const toggleFullScreen = (): void => {
   if (fullscreenIcons.value) {
+    const document: any = window.document
     if (document.exitFullscreen) document.exitFullscreen()
     else if (document.webkitCancelFullscreen) document.webkitCancelFullscreen()
     else if (document.mozCancelFullScreen) document.mozCancelFullScreen()
@@ -427,7 +440,7 @@ const toggleFullScreen = () => {
     else if (videoContainer.value.enterFullscreen) videoContainer.value.enterFullscreen()
   }
 }
-const updateFullscreenButton = () => {
+const updateFullscreenButton = (): void => {
   fullscreenIcons.value = !fullscreenIcons.value
 
   if (fullscreenIcons.value) {
@@ -448,7 +461,7 @@ const togglePip = async () => {
     console.log(error)
   }
 }
-const toggleSettings = () => {
+const toggleSettings = (): void => {
   if (!settings.value) {
     settings.value = 'main'
   } else {
@@ -456,20 +469,20 @@ const toggleSettings = () => {
   }
   mousemove()
 }
-const hideControls = () => {
-  let width = window.outerWidth
+const hideControls = (): void => {
+  let width: number = window.outerWidth
   if (!video.value.paused && width > 579)
     hideClass.value = true
-  videoControls.value.classList.add('hide')
+  videoControls.value?.classList.add('hide')
 }
-const showControls = () => {
-  let width = window.outerWidth
+const showControls = (): void => {
+  let width: number = window.outerWidth
   if (width > 579 || !hideClass.value) {
     hideClass.value = false
   }
-  videoControls.value.classList.remove('hide')
+  videoControls.value?.classList.remove('hide')
 }
-const keyboardShortcuts = (event) => {
+const keyboardShortcuts = (event: KeyboardEvent): void => {
   const {key} = event
   switch (key) {
     case 'k':
@@ -510,28 +523,28 @@ const keyboardShortcuts = (event) => {
       break
   }
 }
-const editSpeed = (e, index) => {
+const editSpeed = (e: VideoSpeedInterface, index: number): void => {
   video.value.playbackRate = e.value
   settings.value = ''
   speedValue.value = index
 }
-const movieWaiting = () => {
+const movieWaiting = (): void => {
   loader.value = true
 }
-const movieError = () => {
+const movieError = (): void => {
   alert('Ошибка при воспроизведении видео')
 }
-const canplay = () => {
+const canplay = (): void => {
   const videoWorks = !!document.createElement('video').canPlayType
   if (videoWorks && videoControls?.value) {
     video.value.controls = false
-    videoControls.value.classList.remove('hidden')
+    videoControls.value?.classList.remove('hidden')
 
   }
   video.value.play()
   loader.value = false
 }
-const mousemove = () => {
+const mousemove = (): void => {
   clearTimeout(mouseMoveTime.value)
   if (isMoveTimeExpired.value || settings.value || video.value.paused) {
     // video.value.classList.remove('no-cursor')
@@ -547,10 +560,7 @@ const mousemove = () => {
     }, 2000)
   }
 }
-// const bottomMouseleave = () => {
-//   isMouseMoveOntoBottom = false
-// }
-const nextVideoTimer = () => {
+const nextVideoTimer = (): void => {
   if (timer.value > 0 && !cancelNextVideo.value) {
     timer.value--
     if (timer.value === 0) {
@@ -561,7 +571,7 @@ const nextVideoTimer = () => {
     }, 1000)
   }
 }
-const ended = () => {
+const ended = (): void => {
   timer.value = 6
   cancelNextVideo.value = false
   emit('end')
@@ -571,15 +581,15 @@ const ended = () => {
   nextVideoTimer()
   showControls()
 }
-const rePlay = () => {
+const rePlay = (): void => {
   loader.value = true
   video.value.currentTime = 0
   cancelNextVideo.value = false
 }
-const onRightButton = (timer = 5) => {
+const onRightButton = (timer: number = 5): void => {
   if (video.value.currentTime < video.value.duration - timer) video.value.currentTime += timer
 }
-const onLeftButton = (timer = 5) => {
+const onLeftButton = (timer: number = 5): void => {
   if (video.value.currentTime >= timer) video.value.currentTime -= timer
 }
 
@@ -588,7 +598,7 @@ const onLeftButton = (timer = 5) => {
 onMounted(() => {
   document.addEventListener('DOMContentLoaded', () => {
     if (!('pictureInPictureEnabled' in document)) {
-      pipButton.value.classList.add('hidden')
+      pipButton.value?.classList.add('hidden')
     }
   })
   document.addEventListener('keydown', keyboardShortcuts)
@@ -599,7 +609,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', keyboardShortcuts)
   document.removeEventListener('DOMContentLoaded', () => {
     if (!('pictureInPictureEnabled' in document)) {
-      pipButton.value.classList.add('hidden')
+      pipButton.value?.classList.add('hidden')
     }
   })
 })
